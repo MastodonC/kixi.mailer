@@ -1,0 +1,57 @@
+{:service-name "kixi.mailer"
+ :emailer {:ses #profile {:local {}
+                          :staging {}
+                          :prod {}}}
+ :logging {:level #profile {:default :info
+                            :prod :error} ; e/o #{:trace :debug :info :warn :error :fatal :report}
+           ;; Control log filtering by namespaces/patterns. Useful for turning off
+           ;; logging in noisy libraries, etc.:
+           ;;:ns-whitelist  ["whiner.*"] #_["my-app.foo-ns"]
+           :ns-blacklist ["org.eclipse.jetty"]
+           :kixi-comms-verbose-logging #profile {:default true
+                                                 :staging true
+                                                 :prod true}
+           :appender #profile {:default :println
+                               :staging :json
+                               :prod :json}}
+ :communications {:kinesis #profile {:local {:app "kixi.mailer"
+                                             :endpoint "kinesis.eu-central-1.amazonaws.com"
+                                             :dynamodb-endpoint #or [#env DYNAMODB "http://localhost:8000"]
+                                             :profile "local"
+                                             :streams {:event #or [#env EVENT_STREAM  "kixi-mailer-local-event"]
+                                                       :command #or [#env COMMAND_STREAM "kixi-mailer-local-command"]}
+                                             :metric-level :NONE
+                                        ;:idle-time-between-reads-in-millis #or [#env KINESIS_IDLE 100]
+                                             }
+                                     :staging-jenkins {:app "kixi.mailer"
+                                                       :endpoint "kinesis.eu-central-1.amazonaws.com"
+                                                       :dynamodb-endpoint "dynamodb.eu-central-1.amazonaws.com"
+                                                       :profile "staging-jenkins"
+                                                       :streams {:event "staging-jenkins-kixi-mailer-event"
+                                                                 :command "staging-jenkins-kixi-mailer-command"}
+                                        ;:idle-time-between-reads-in-millis #or [#env KINESIS_IDLE 100]
+                                                       }
+                                     :staging {:app "kixi.mailer"
+                                               :endpoint "kinesis.eu-central-1.amazonaws.com"
+                                               :dynamodb-endpoint "dynamodb.eu-central-1.amazonaws.com"
+                                               :profile "staging"
+                                               :streams {:event "staging-witan-event"
+                                                         :command "staging-witan-command"}
+                                        ;:idle-time-between-reads-in-millis #or [#env KINESIS_IDLE 200]
+                                               }
+                                     :staging-integration {:app "kixi.mailer-staging-test"
+                                                           :endpoint "kinesis.eu-central-1.amazonaws.com"
+                                                           :dynamodb-endpoint "dynamodb.eu-central-1.amazonaws.com"
+                                                           :profile "staging-integration"
+                                                           :streams {:event "staging-witan-event"
+                                                                     :command "staging-witan-command"}
+                                        ;:idle-time-between-reads-in-millis #or [#env KINESIS_IDLE 200]
+                                                           }
+                                     :prod {:app "kixi.mailer"
+                                            :endpoint "kinesis.eu-west-1.amazonaws.com"
+                                            :dynamodb-endpoint "dynamodb.eu-west-1.amazonaws.com"
+                                            :profile "prod"
+                                            :streams {:event "prod-witan-event"
+                                                      :command "prod-witan-command"}
+                                        ;:idle-time-between-reads-in-millis #or [#env KINESIS_IDLE 200]
+                                            }}}}

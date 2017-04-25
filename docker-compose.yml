@@ -1,0 +1,6 @@
+version: '2'
+services:
+  dynamo:
+    image: rajatvig/dynalite-alpine
+    ports:
+      - '8000:8000'

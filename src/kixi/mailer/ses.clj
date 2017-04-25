@@ -41,14 +41,20 @@
 
 (s/def ::payload
   (s/keys :req-un [::destination
-                   ::source]))
+                   ::message]
+          :opt-un [::source]))
+
+(def default-payload
+  {:source "donotreply@mastodonc.com"})
 
 (defn create-mail-sender
   []
   (fn [{:keys [kixi.comms.command/payload] :as cmd}]
-    (if (s/valid? ::payload payload)
-      (accepted cmd)
-      (rejected cmd (s/explain-data ::payload payload)))))
+    (let [payload (merge default-payload
+                         payload)]
+      (if (s/valid? ::payload payload)
+        (accepted cmd)
+        (rejected cmd (s/explain-data ::payload payload))))))
 
 (defrecord Mailer
     [communications sent-mail-handler]

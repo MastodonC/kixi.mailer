@@ -12,6 +12,7 @@
 (def wait-tries (Integer/parseInt (env :wait-tries "80")))
 (def wait-per-try (Integer/parseInt (env :wait-per-try "1000")))
 (def run-against-staging (Boolean/parseBoolean (env :run-against-staging "false")))
+(def profile (env :profile "local"))
 
 (defn uuid
   []
@@ -145,10 +146,23 @@
 
 (use-fixtures :once cycle-system-fixture extract-comms)
 
+(def test-mail {:destination {:to-addresses ["support@mastodonc.com"]}
+                :source "no-reply@witanforcites.com"
+                :message {:subject (str "kixi.mailer - " profile " - Integration Test Mail")
+                          :body {:text "This is an email from the integration tests for kixi.mailer."}}})
+
 (deftest send-acceptable-mail
   (let [uid (uuid)
-        event (send-mail uid {:mail ""})]
+        event (send-mail uid test-mail)]
     (is (= :kixi.mailer/mail-accepted
+           (:kixi.comms.event/key event)))
+    (is (= uid
+           (get-in event [:kixi.comms.event/payload :kixi/user :kixi.user/id])))))
+
+(deftest send-unacceptable-mail
+  (let [uid (uuid)
+        event (send-mail uid {:mail ""})]
+    (is (= :kixi.mailer/mail-rejected
            (:kixi.comms.event/key event)))
     (is (= uid
            (get-in event [:kixi.comms.event/payload :kixi/user :kixi.user/id])))))

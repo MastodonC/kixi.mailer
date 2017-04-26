@@ -31,12 +31,12 @@
     (start [component]
       (if listener
         component
-        (let [vhosts-model (vhosts-model
+        (let [_ (infof "Starting web-server on port %s" port)
+              vhosts-model (vhosts-model
                             [{:scheme :http
                               :host (str vhost ":" port)}
                              (routes)])
               listener (yada/listener vhosts-model {:port port})]
-          (infof "Started web-server on port %s" port)
           (assoc component :listener listener))))
     (stop [component]
       (when-let [close (get-in component [:listener :close])]

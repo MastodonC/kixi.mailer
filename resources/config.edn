@@ -14,6 +14,21 @@
            :appender #profile {:default :println
                                :staging :json
                                :prod :json}}
+ :web #profile {:local {:vhost #or [#env VHOST "localhost"]
+                        :port 8080
+                        :request-logging? true}
+                :staging-integration {:vhost #or [#env VHOST "localhost"]
+                                      :port 8080
+                                      :request-logging? true}
+                :staging-jenkins {:vhost "localhost"
+                                  :port 8080
+                                  :request-logging? true}
+                :staging {:vhost "kixi.mailer.marathon.mesos"
+                          :port 18090
+                          :request-logging? true}
+                :prod {:vhost "kixi.mailer.marathon.mesos"
+                       :port 18080
+                       :request-logging? true}}
  :communications {:kinesis #profile {:local {:app "kixi.mailer"
                                              :endpoint "kinesis.eu-central-1.amazonaws.com"
                                              :dynamodb-endpoint #or [#env DYNAMODB "http://localhost:8000"]

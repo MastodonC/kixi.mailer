@@ -1,5 +1,6 @@
 (ns kixi.integration.ses-test
   (:require [amazonica.aws.dynamodbv2 :as ddb]
+            [clj-http.client :as client]
             [clojure
              [test :refer :all]]
             [clojure.spec.test :as stest]
@@ -12,6 +13,7 @@
 (def wait-tries (Integer/parseInt (env :wait-tries "80")))
 (def wait-per-try (Integer/parseInt (env :wait-per-try "1000")))
 (def run-against-staging (Boolean/parseBoolean (env :run-against-staging "false")))
+(def service-url (env :service-url "localhost:8080"))
 (def profile (env :profile "local"))
 
 (defn uuid
@@ -145,6 +147,11 @@
 
 
 (use-fixtures :once cycle-system-fixture extract-comms)
+
+(deftest healthcheck-check
+  (let [hc-resp (client/get (str "http://" service-url "/healthcheck"))]
+    (is (= (:status hc-resp)
+           200))))
 
 (def test-mail {:destination {:to-addresses ["support@mastodonc.com"]}
                 :source "no-reply@witanforcites.com"

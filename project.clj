@@ -6,12 +6,16 @@
   :license {:name "Eclipse Public License"
             :url "http://www.eclipse.org/legal/epl-v10.html"}
   :dependencies [[aero "1.0.0"]
+                 [aleph "0.4.2-alpha8"]
+                 [bidi "2.0.12"]
+                 [clj-http "3.5.0"]
                  [com.amazonaws/aws-java-sdk "1.11.53" :exclusions [joda-time]]
                  [com.taoensso/timbre "4.8.0"]
                  [kixi/kixi.comms "0.2.13"]
                  [kixi/kixi.log "0.1.4"]
                  [kixi/kixi.metrics "0.4.0"]
-                 [org.clojure/clojure "1.9.0-alpha14"]]
+                 [org.clojure/clojure "1.9.0-alpha14"]
+                 [yada/lean "1.2.2"]]
   :repl-options {:init-ns user}
   :global-vars {*warn-on-reflection* true
                 *assert* false}

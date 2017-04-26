@@ -11,6 +11,7 @@
              [log :as kixi-log]]
             [kixi.comms.components.kinesis :as kinesis]
             [kixi.mailer.ses :as m]
+            [kixi.mailer.web :as w]
             [taoensso.timbre :as log]))
 
 (defn config
@@ -28,7 +29,8 @@
   (system-map
    :communications (case (first (keys (:communications config)))
                      :kinesis (kinesis/map->Kinesis {}))
-   :mailer (m/map->Mailer {})))
+   :mailer (m/map->Mailer {})
+   :web (w/map->Web {})))
 
 (defn raise-first
   "Updates the keys value in map to that keys current first value"

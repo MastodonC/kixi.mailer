@@ -56,7 +56,7 @@
           :opt-un [::source]))
 
 (def default-payload
-  {:source "donotreply@mastodonc.com"})
+  {:source "support@mastodonc.com"})
 
 (defn send-email
   [endpoint payload]

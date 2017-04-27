@@ -14,7 +14,7 @@
 (def wait-per-try (Integer/parseInt (env :wait-per-try "1000")))
 (def run-against-staging (Boolean/parseBoolean (env :run-against-staging "false")))
 (def service-url (env :service-url "localhost:8080"))
-(def profile (env :profile "local"))
+(def profile (env :system-profile "local"))
 
 (defn uuid
   []
@@ -154,7 +154,7 @@
            200))))
 
 (def test-mail {:destination {:to-addresses ["support@mastodonc.com"]}
-                :source "no-reply@witanforcites.com"
+                :source "support@mastodonc.com"
                 :message {:subject (str "kixi.mailer - " profile " - Integration Test Mail")
                           :body {:text "This is an email from the integration tests for kixi.mailer."}}})
 

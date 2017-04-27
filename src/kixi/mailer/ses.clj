@@ -1,9 +1,11 @@
 (ns kixi.mailer.ses
-  (:require [com.stuartsierra.component :as component]
+  (:require [amazonica.aws.simpleemail :as email]
+            [com.stuartsierra.component :as component]
             [clojure.spec :as s]
-            [kixi.comms :as c]))
+            [kixi.comms :as c]
+            [taoensso.timbre :as timbre :refer [error]]))
 
-(defn rejected
+(defn invalid-rejected
   [cmd explaination]
   {:kixi.comms.event/key :kixi.mailer/mail-rejected
    :kixi.comms.event/version "1.0.0"
@@ -11,11 +13,20 @@
                               :explain explaination
                               :kixi/user (:kixi.comms.command/user cmd)}})
 
+(defn aws-rejected
+  [cmd explaination]
+  {:kixi.comms.event/key :kixi.mailer/mail-rejected
+   :kixi.comms.event/version "1.0.0"
+   :kixi.comms.event/payload {:reason :aws-rejected
+                              :explain explaination
+                              :kixi/user (:kixi.comms.command/user cmd)}})
+
 (defn accepted
-  [cmd]
+  [cmd ses-resp]
   {:kixi.comms.event/key :kixi.mailer/mail-accepted
    :kixi.comms.event/version "1.0.0"
-   :kixi.comms.event/payload {:kixi/user (:kixi.comms.command/user cmd)}})
+   :kixi.comms.event/payload {:kixi/user (:kixi.comms.command/user cmd)
+                              :ses-response ses-resp}})
 
 (def email-regex #"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,63}$")
 (def email? (s/and string? #(re-matches email-regex %)))
@@ -47,30 +58,45 @@
 (def default-payload
   {:source "donotreply@mastodonc.com"})
 
+(defn send-email
+  [endpoint payload]
+  (try
+    (email/send-email {:endpoint endpoint}
+                      :destination (:destination payload)
+                      :source (:source payload)
+                      :message (:message payload))
+    (catch Exception e
+      (error e "Exception sending email")
+      {:error true
+       :exception e})))
+
 (defn create-mail-sender
-  []
+  [endpoint]
   (fn [{:keys [kixi.comms.command/payload] :as cmd}]
     (let [payload (merge default-payload
                          payload)]
       (if (s/valid? ::payload payload)
-        (accepted cmd)
-        (rejected cmd (s/explain-data ::payload payload))))))
+        (let [send-resp (send-email endpoint payload)]
+          (if-not (:error send-resp)
+            (accepted cmd send-resp)
+            (aws-rejected cmd send-resp)))
+        (invalid-rejected cmd (s/explain-data ::payload payload))))))
 
 (defrecord Mailer
-    [communications sent-mail-handler]
-  component/Lifecycle
-  (start [component]
-    (merge component
-           (when-not sent-mail-handler
-             {:sent-mail-handler
-              (c/attach-command-handler!
-               communications
-               :kixi.mailer/mailer
-               :kixi.mailer/sent-mail
-               "1.0.0" (create-mail-sender))})))
-  (stop [component]
-    (-> component
-        (update component :sent-mail-handler
-                #(when %
-                   (c/detach-handler! communications %)
-                   nil)))))
+    [communications sent-mail-handler endpoint]
+    component/Lifecycle
+    (start [component]
+      (merge component
+             (when-not sent-mail-handler
+               {:sent-mail-handler
+                (c/attach-command-handler!
+                 communications
+                 :kixi.mailer/mailer
+                 :kixi.mailer/sent-mail
+                 "1.0.0" (create-mail-sender endpoint))})))
+    (stop [component]
+      (-> component
+          (update component :sent-mail-handler
+                  #(when %
+                     (c/detach-handler! communications %)
+                     nil)))))

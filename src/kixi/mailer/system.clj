@@ -22,7 +22,8 @@
 
 (def component-dependencies
   {:mailer [:communications]
-   :communications []})
+   :communications []
+   :web []})
 
 (defn new-system-map
   [config]

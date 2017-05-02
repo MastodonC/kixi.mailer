@@ -132,7 +132,7 @@
   ([uid ugroup mail]
    (c/send-command!
     @comms
-    :kixi.mailer/sent-mail
+    :kixi.mailer/send-mail
     "1.0.0"
     {:kixi.user/id uid
      :kixi.user/groups (vec-if-not ugroup)}

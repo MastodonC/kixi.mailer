@@ -83,20 +83,20 @@
         (invalid-rejected cmd (s/explain-data ::payload payload))))))
 
 (defrecord Mailer
-    [communications sent-mail-handler endpoint]
+    [communications send-mail-handler endpoint]
     component/Lifecycle
     (start [component]
       (merge component
-             (when-not sent-mail-handler
-               {:sent-mail-handler
+             (when-not send-mail-handler
+               {:send-mail-handler
                 (c/attach-command-handler!
                  communications
                  :kixi.mailer/mailer
-                 :kixi.mailer/sent-mail
+                 :kixi.mailer/send-mail
                  "1.0.0" (create-mail-sender endpoint))})))
     (stop [component]
       (-> component
-          (update component :sent-mail-handler
+          (update component :send-mail-handler
                   #(when %
                      (c/detach-handler! communications %)
                      nil)))))

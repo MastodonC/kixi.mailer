@@ -1,5 +1,6 @@
 (ns kixi.mailer-test
-  (:require [clojure.test :refer :all]
+  (:require [clojure.java.io :as io]
+            [clojure.test :refer :all]
             [clojure.spec :as s]
             [kixi.mailer.ses :as m]))
 
@@ -11,3 +12,13 @@
 
 (deftest valid-payload-passes
   (is (nil? (s/explain-data ::m/payload example-payload))))
+
+(def test-text "This is an email from the integration tests for kixi.mailer.")
+
+(def test-body {:body {:text (str "<<&env.default_header>>" test-text "<<&env.default_footer>>")
+                       :html (str "<<&env.default_header>>" test-text "<<&env.default_footer>>")}})
+
+(deftest templating-text
+  (is (= {:body {:text (str (slurp (io/resource "emails/default-text-header.txt")) test-text (slurp (io/resource "emails/default-text-footer.txt")))
+                 :html (str (slurp (io/resource "emails/default-html-header.html")) test-text (slurp (io/resource "emails/default-html-footer.html")))}}
+         (m/render-templates test-body))))

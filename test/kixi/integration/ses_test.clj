@@ -156,7 +156,7 @@
 (def test-mail {:destination {:to-addresses ["support@mastodonc.com"]}
                 :source "support@mastodonc.com"
                 :message {:subject (str "kixi.mailer - " profile " - Integration Test Mail")
-                          :body {:text "This is an email from the integration tests for kixi.mailer."}}})
+                          :body {:text "<<&env.default_header>>This is an email from the integration tests for kixi.mailer.<<&env.default_footer>>"}}})
 
 (deftest send-acceptable-mail
   (let [uid (uuid)

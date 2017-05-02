@@ -1,9 +1,11 @@
 (ns kixi.mailer.ses
   (:require [amazonica.aws.simpleemail :as email]
             [com.stuartsierra.component :as component]
+            [clostache.parser :as parser]
             [clojure.spec :as s]
             [kixi.comms :as c]
-            [taoensso.timbre :as timbre :refer [error]]))
+            [taoensso.timbre :as timbre :refer [error]]
+            [clojure.java.io :as io]))
 
 (defn invalid-rejected
   [cmd explaination]
@@ -58,13 +60,43 @@
 (def default-payload
   {:source "support@mastodonc.com"})
 
+(def angle-delimiters (partial str "{{=<< >>=}}"))
+
+(def html-template-vars
+  {:env {:default_header (slurp (io/resource "emails/default-html-header.html"))
+         :default_footer (slurp (io/resource "emails/default-html-footer.html"))
+         :base_url "http://www.witanforcities.com"}})
+
+(def text-template-vars
+  {:env {:default_header (slurp (io/resource "emails/default-text-header.txt"))
+         :default_footer (slurp (io/resource "emails/default-text-footer.txt"))
+         :base_url "http://www.witanforcities.com"}})
+
+(defn render
+  [vars]
+  (fn [txt]
+    (parser/render txt vars)))
+
+(defn xupdate-in
+  "update if present"
+  [m ks f]
+  (if (get-in m ks)
+    (update-in m ks f)
+    m))
+
+(defn render-templates
+  [message]
+  (-> message
+      (xupdate-in [:body :text] (comp (render text-template-vars) angle-delimiters))
+      (xupdate-in [:body :html] (comp (render html-template-vars) angle-delimiters))))
+
 (defn send-email
   [endpoint payload]
   (try
     (email/send-email {:endpoint endpoint}
                       :destination (:destination payload)
                       :source (:source payload)
-                      :message (:message payload))
+                      :message (render-templates (:message payload)))
     (catch Exception e
       (error e "Exception sending email")
       {:error true

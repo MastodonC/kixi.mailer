@@ -13,6 +13,8 @@
 (def wait-tries (Integer/parseInt (env :wait-tries "80")))
 (def wait-per-try (Integer/parseInt (env :wait-per-try "1000")))
 (def run-against-staging (Boolean/parseBoolean (env :run-against-staging "false")))
+(def teardown-kinesis (Boolean/parseBoolean (env :teardown-kinesis "false")))
+(def teardown-dynamo (Boolean/parseBoolean (env :teardown-dynamo "false")))
 (def service-url (env :service-url "localhost:8080"))
 (def profile (env :system-profile "local"))
 
@@ -43,10 +45,12 @@
 
 (defn tear-down-kinesis
   [{:keys [endpoint dynamodb-endpoint streams
-           profile app]}]
-  (delete-tables dynamodb-endpoint [(kinesis/event-worker-app-name app profile)
-                                    (kinesis/command-worker-app-name app profile)])
-  (kinesis/delete-streams! endpoint (vals streams)))
+           profile app teardown-kinesis teardown-dynamo]}]
+  (when teardown-dynamo
+    (delete-tables dynamodb-endpoint [(kinesis/event-worker-app-name app profile)
+                                      (kinesis/command-worker-app-name app profile)]))
+  (when teardown-kinesis
+    (kinesis/delete-streams! endpoint (vals streams))))
 
 (defn cycle-system-fixture
   [all-tests]
@@ -58,10 +62,9 @@
        (finally
          (let [kinesis-conf (select-keys (:communications @user/system)
                                          [:endpoint :dynamodb-endpoint :streams
-                                          :profile :app :teardown])]
+                                          :profile :app])]
            (user/stop)
-           (when (:teardown kinesis-conf)
-             (tear-down-kinesis kinesis-conf))))))
+           (tear-down-kinesis kinesis-conf)))))
 
 (def comms (atom nil))
 (def event-channel (atom nil))

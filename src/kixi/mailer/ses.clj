@@ -76,7 +76,7 @@
   (s/keys :req [::text-vars ::html-vars]))
 
 (def default-payload
-  {:source "support@mastodonc.com"})
+  {:source "noreply@witanforcities.com"})
 
 (def angle-delimiters (partial str "{{=<< >>=}}"))
 

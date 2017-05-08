@@ -1,8 +1,12 @@
 {:service-name "kixi.mailer"
- :mailer {:ses #profile {:local {:endpoint "eu-west-1"}
-                         :staging-jenkins {:endpoint "eu-west-1"}
-                         :staging {:endpoint "eu-west-1"}
-                         :prod {:endpoint "eu-west-1"}}}
+ :mailer {:ses #profile {:local {:endpoint "eu-west-1"
+                                 :base-url "http://www.staging.witanforcities.com"}
+                         :staging-jenkins {:endpoint "eu-west-1"
+                                           :base-url "http://www.staging.witanforcities.com"}
+                         :staging {:endpoint "eu-west-1"
+                                   :base-url "http://staging.witanforcities.com"}
+                         :prod {:endpoint "eu-west-1"
+                                :base-url "http://witanforcities.com"}}}
  :logging {:level #profile {:default :info
                             :prod :error} ; e/o #{:trace :debug :info :warn :error :fatal :report}
            ;; Control log filtering by namespaces/patterns. Useful for turning off

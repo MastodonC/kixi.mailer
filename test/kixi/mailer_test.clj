@@ -1,7 +1,9 @@
 (ns kixi.mailer-test
-  (:require [clojure.java.io :as io]
+  (:require [amazonica.aws.simpleemail :as email]
+            [clojure.java.io :as io]
             [clojure.test :refer :all]
             [clojure.spec :as s]
+            [clojure.spec.test :as st]
             [kixi.mailer.ses :as m]))
 
 (def example-payload {:destination {:to-addresses ["example@example.com"]}
@@ -21,4 +23,12 @@
 (deftest templating-text
   (is (= {:body {:text (str (slurp (io/resource "emails/default-text-header.txt")) test-text (slurp (io/resource "emails/default-text-footer.txt")))
                  :html (str (slurp (io/resource "emails/default-html-header.html")) test-text (slurp (io/resource "emails/default-html-footer.html")))}}
-         (m/render-templates test-body))))
+         (m/render-templates (m/merge-in-render-vars "rendered-base-url") test-body))))
+
+(st/instrument)
+
+(deftest mail-sender
+  (with-redefs [email/send-email (constantly :redefed-accept)]
+    (let [sender (m/create-mail-sender "endpoint" "base-url")]
+      (is (= (m/accepted {} :redefed-accept)
+             (sender {:kixi.comms.command/payload example-payload}))))))

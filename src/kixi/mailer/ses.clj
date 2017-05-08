@@ -57,20 +57,36 @@
                    ::message]
           :opt-un [::source]))
 
+(s/def ::endpoint string?)
+(s/def ::default_header string?)
+(s/def ::default_footer string?)
+(s/def ::base_url (s/and string?
+                         #(not (clojure.string/ends-with? % "/"))))
+
+(s/def ::env
+  (s/keys :un-req [::default_header ::default_footer ::base_url]))
+
+(s/def ::render-var
+  (s/keys :un-req [::env]))
+
+(s/def ::text-vars ::render-var)
+(s/def ::html-vars ::render-var)
+
+(s/def ::render-vars
+  (s/keys :req [::text-vars ::html-vars]))
+
 (def default-payload
   {:source "support@mastodonc.com"})
 
 (def angle-delimiters (partial str "{{=<< >>=}}"))
 
-(def html-template-vars
+(def base-html-template-vars
   {:env {:default_header (slurp (io/resource "emails/default-html-header.html"))
-         :default_footer (slurp (io/resource "emails/default-html-footer.html"))
-         :base_url "http://www.witanforcities.com"}})
+         :default_footer (slurp (io/resource "emails/default-html-footer.html"))}})
 
-(def text-template-vars
+(def base-text-template-vars
   {:env {:default_header (slurp (io/resource "emails/default-text-header.txt"))
-         :default_footer (slurp (io/resource "emails/default-text-footer.txt"))
-         :base_url "http://www.witanforcities.com"}})
+         :default_footer (slurp (io/resource "emails/default-text-footer.txt"))}})
 
 (defn render
   [vars]
@@ -85,37 +101,58 @@
     m))
 
 (defn render-templates
-  [message]
+  [render-vars message]
   (-> message
-      (xupdate-in [:body :text] (comp (render text-template-vars) angle-delimiters))
-      (xupdate-in [:body :html] (comp (render html-template-vars) angle-delimiters))))
+      (xupdate-in [:body :text] (comp (render (::text-vars render-vars)) angle-delimiters))
+      (xupdate-in [:body :html] (comp (render (::html-vars render-vars)) angle-delimiters))))
+
+(s/fdef send-email
+        :args (s/cat :endpoint ::endpoint
+                     :render-vars ::render-vars
+                     :payload ::payload))
 
 (defn send-email
-  [endpoint payload]
+  [endpoint render-vars payload]
   (try
     (email/send-email {:endpoint endpoint}
                       :destination (:destination payload)
                       :source (:source payload)
-                      :message (render-templates (:message payload)))
+                      :message (render-templates render-vars (:message payload)))
     (catch Exception e
       (error e "Exception sending email")
       {:error true
        :exception e})))
 
+(defn merge-in-render-vars
+  [base-url]
+  {::text-vars (merge-with merge base-text-template-vars
+                     {:env {:base_url base-url}})
+   ::html-vars (merge-with merge base-html-template-vars
+                     {:env {:base_url base-url}})})
+
+(defn validate-configuration
+  [endpoint render-vars]
+  (when-not (s/valid? ::endpoint endpoint)
+    (throw (ex-info "Config invalid, endpoint" (s/explain-data ::endpoint endpoint))))
+  (when-not (s/valid? ::render-vars render-vars)
+    (throw (ex-info "Config invalid" (s/explain-data ::render-vars render-vars)))))
+
 (defn create-mail-sender
-  [endpoint]
-  (fn [{:keys [kixi.comms.command/payload] :as cmd}]
-    (let [payload (merge default-payload
-                         payload)]
-      (if (s/valid? ::payload payload)
-        (let [send-resp (send-email endpoint payload)]
-          (if-not (:error send-resp)
-            (accepted cmd send-resp)
-            (aws-rejected cmd send-resp)))
-        (invalid-rejected cmd (s/explain-data ::payload payload))))))
+  [endpoint base-url]
+  (let [render-vars (merge-in-render-vars base-url)]
+    (validate-configuration endpoint render-vars)
+    (fn [{:keys [kixi.comms.command/payload] :as cmd}]
+      (let [payload (merge default-payload
+                           payload)]
+        (if (s/valid? ::payload payload)
+          (let [send-resp (send-email endpoint render-vars payload)]
+            (if-not (:error send-resp)
+              (accepted cmd send-resp)
+              (aws-rejected cmd send-resp)))
+          (invalid-rejected cmd (s/explain-data ::payload payload)))))))
 
 (defrecord Mailer
-    [communications send-mail-handler endpoint]
+    [communications send-mail-handler endpoint base-url]
     component/Lifecycle
     (start [component]
       (merge component
@@ -125,7 +162,7 @@
                  communications
                  :kixi.mailer/mailer
                  :kixi.mailer/send-mail
-                 "1.0.0" (create-mail-sender endpoint))})))
+                 "1.0.0" (create-mail-sender endpoint base-url))})))
     (stop [component]
       (-> component
           (update component :send-mail-handler

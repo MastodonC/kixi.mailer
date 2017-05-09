@@ -4,7 +4,7 @@
             [clostache.parser :as parser]
             [clojure.spec :as s]
             [kixi.comms :as c]
-            [kixi.log :as l]
+            [kixi.log.timbre.appenders.logstash :as l]
             [taoensso.timbre :as timbre :refer [error]]
             [clojure.java.io :as io]))
 

@@ -4,6 +4,7 @@
             [clostache.parser :as parser]
             [clojure.spec :as s]
             [kixi.comms :as c]
+            [kixi.log :as l]
             [taoensso.timbre :as timbre :refer [error]]
             [clojure.java.io :as io]))
 
@@ -121,7 +122,7 @@
     (catch Exception e
       (error e "Exception sending email")
       {:error true
-       :exception e})))
+       :exception (l/exception->map e)})))
 
 (defn merge-in-render-vars
   [base-url]

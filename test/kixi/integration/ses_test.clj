@@ -45,7 +45,7 @@
 
 (defn tear-down-kinesis
   [{:keys [endpoint dynamodb-endpoint streams
-           profile app teardown-kinesis teardown-dynamo]}]
+           profile app]}]
   (when teardown-dynamo
     (delete-tables dynamodb-endpoint [(kinesis/event-worker-app-name app profile)
                                       (kinesis/command-worker-app-name app profile)]))

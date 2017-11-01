@@ -26,7 +26,7 @@
     "cpus": @@CPUS@@,
     "mem": @@MEM@@,
     "healthChecks": [{
-        "protocol": "TCP",
+        "protocol": "HTTP",
         "path": "/healthcheck",
         "gracePeriodSeconds": 600,
         "intervalSeconds": 30,

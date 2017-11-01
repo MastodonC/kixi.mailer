@@ -26,17 +26,13 @@
     [true (yada/handler nil)]]])
 
 (defrecord Web
-    [port vhost listener]
+    [port listener]
     component/Lifecycle
     (start [component]
       (if listener
         component
         (let [_ (infof "Starting web-server on port %s" port)
-              vhosts-model (vhosts-model
-                            [{:scheme :http
-                              :host (str vhost ":" port)}
-                             (routes)])
-              listener (yada/listener vhosts-model {:port port})]
+              listener (yada/listener (routes) {:port port})]
           (assoc component :listener listener))))
     (stop [component]
       (when-let [close (get-in component [:listener :close])]

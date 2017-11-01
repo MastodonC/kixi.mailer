@@ -19,20 +19,15 @@
            :appender #profile {:default :println
                                :staging :json
                                :prod :json}}
- :web #profile {:local {:vhost #or [#env VHOST "localhost"]
-                        :port 8080
+ :web #profile {:local {:port 8080
                         :request-logging? true}
-                :staging-integration {:vhost #or [#env VHOST "localhost"]
-                                      :port 8080
+                :staging-integration {:port 8080
                                       :request-logging? true}
-                :staging-jenkins {:vhost "localhost"
-                                  :port 8080
+                :staging-jenkins {:port 8080
                                   :request-logging? true}
-                :staging {:vhost "kixi.mailer.marathon.mesos"
-                          :port 18090
+                :staging {:port 18090
                           :request-logging? true}
-                :prod {:vhost "kixi.mailer.marathon.mesos"
-                       :port 18090
+                :prod {:port 18090
                        :request-logging? true}}
  :communications {:kinesis #profile {:local {:app "kixi.mailer"
                                              :endpoint "kinesis.eu-central-1.amazonaws.com"

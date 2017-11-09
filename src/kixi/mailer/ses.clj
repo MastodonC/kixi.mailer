@@ -2,7 +2,7 @@
   (:require [amazonica.aws.simpleemail :as email]
             [com.stuartsierra.component :as component]
             [clostache.parser :as parser]
-            [clojure.spec :as s]
+            [clojure.spec.alpha :as s]
             [kixi.comms :as c]
             [kixi.log.timbre.appenders.logstash :as l]
             [taoensso.timbre :as timbre :refer [error]]
@@ -10,11 +10,13 @@
 
 (defn invalid-rejected
   [cmd explaination]
+(prn cmd)
   {:kixi.comms.event/key :kixi.mailer/mail-rejected
    :kixi.comms.event/version "1.0.0"
    :kixi.comms.event/payload {:reason :mail-invalid
                               :explain explaination
-                              :kixi/user (:kixi.comms.command/user cmd)}})
+                              :kixi/user (:kixi.comms.command/user cmd)}
+   :kixi.comms.event/partition-key (get-in cmd [:kixi.comms.command/user :kixi.user/id])})
 
 (defn aws-rejected
   [cmd explaination]
@@ -22,19 +24,21 @@
    :kixi.comms.event/version "1.0.0"
    :kixi.comms.event/payload {:reason :aws-rejected
                               :explain explaination
-                              :kixi/user (:kixi.comms.command/user cmd)}})
+                              :kixi/user (:kixi.comms.command/user cmd)}
+   :kixi.comms.event/partition-key (get-in cmd [:kixi.comms.command/user :kixi.user/id])})
 
 (defn accepted
   [cmd ses-resp]
   {:kixi.comms.event/key :kixi.mailer/mail-accepted
    :kixi.comms.event/version "1.0.0"
    :kixi.comms.event/payload {:kixi/user (:kixi.comms.command/user cmd)
-                              :ses-response ses-resp}})
+                              :ses-response ses-resp}
+   :kixi.comms.event/partition-key (get-in cmd [:kixi.comms.command/user :kixi.user/id])})
 
 (def email-regex #"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,63}$")
 (def email? (s/and string? #(re-matches email-regex %)))
 
-(s/def ::to-addresses 
+(s/def ::to-addresses
   (s/coll-of email? :min-count 1 :max-count 50))
 
 (s/def ::source email?)

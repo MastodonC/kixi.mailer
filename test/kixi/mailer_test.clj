@@ -2,8 +2,8 @@
   (:require [amazonica.aws.simpleemail :as email]
             [clojure.java.io :as io]
             [clojure.test :refer :all]
-            [clojure.spec :as s]
-            [clojure.spec.test :as st]
+            [clojure.spec.alpha :as s]
+            [clojure.spec.test.alpha :as st]
             [kixi.mailer.ses :as m]))
 
 (def example-payload {:destination {:to-addresses ["example@example.com"]}

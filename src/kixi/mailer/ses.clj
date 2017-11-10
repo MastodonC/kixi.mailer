@@ -10,7 +10,6 @@
 
 (defn invalid-rejected
   [cmd explaination]
-(prn cmd)
   {:kixi.comms.event/key :kixi.mailer/mail-rejected
    :kixi.comms.event/version "1.0.0"
    :kixi.comms.event/payload {:reason :mail-invalid

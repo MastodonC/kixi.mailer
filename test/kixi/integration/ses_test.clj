@@ -50,7 +50,7 @@
     (delete-tables dynamodb-endpoint [(kinesis/event-worker-app-name app profile)
                                       (kinesis/command-worker-app-name app profile)]))
   (when teardown-kinesis
-    (kinesis/delete-streams! endpoint (vals streams))))
+    (kinesis/delete-streams! {:endpoint endpoint} (vals streams))))
 
 (defn cycle-system-fixture
   [all-tests]

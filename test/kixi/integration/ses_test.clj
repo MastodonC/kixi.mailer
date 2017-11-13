@@ -3,7 +3,7 @@
             [clj-http.client :as client]
             [clojure
              [test :refer :all]]
-            [clojure.spec.test :as stest]
+            [clojure.spec.test.alpha :as stest]
             [clojure.core.async :as async]
             [environ.core :refer [env]]
             [kixi.comms.components.kinesis :as kinesis]
@@ -50,7 +50,7 @@
     (delete-tables dynamodb-endpoint [(kinesis/event-worker-app-name app profile)
                                       (kinesis/command-worker-app-name app profile)]))
   (when teardown-kinesis
-    (kinesis/delete-streams! endpoint (vals streams))))
+    (kinesis/delete-streams! {:endpoint endpoint} (vals streams))))
 
 (defn cycle-system-fixture
   [all-tests]
@@ -139,7 +139,8 @@
     "1.0.0"
     {:kixi.user/id uid
      :kixi.user/groups (vec-if-not ugroup)}
-    mail)))
+    mail
+    {:kixi.comms.command/partition-key uid})))
 
 (defn send-mail
   ([uid mail]

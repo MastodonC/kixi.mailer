@@ -3,9 +3,7 @@
             [clojure.java.io :as io]
             [com.stuartsierra.component
              :as
-             component
-             :refer
-             [system-map system-using]]
+             component]
             [kixi
              [comms :as comms]
              [log :as kixi-log]]
@@ -27,7 +25,7 @@
 
 (defn new-system-map
   [config]
-  (system-map
+  (component/system-map
    :communications (case (first (keys (:communications config)))
                      :kinesis (kinesis/map->Kinesis {}))
    :mailer (m/map->Mailer {})
@@ -72,5 +70,4 @@
     (configure-logging config)
     (-> (new-system-map config)
         (configure-components config profile)
-        (system-using component-dependencies))))
-
+        (component/system-using component-dependencies))))

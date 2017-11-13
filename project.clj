@@ -10,12 +10,12 @@
                  [bidi "2.0.12"]
                  [clj-http "3.5.0"]
                  [com.amazonaws/aws-java-sdk "1.11.53" :exclusions [joda-time]]
-                 [com.taoensso/timbre "4.8.0"]                 
+                 [com.taoensso/timbre "4.8.0"]
                  [de.ubercode.clostache/clostache "1.4.0"]
-                 [kixi/kixi.comms "0.2.13"]
+                 [kixi/kixi.comms "0.2.27"]
                  [kixi/kixi.log "0.1.4"]
                  [kixi/kixi.metrics "0.4.0"]
-                 [org.clojure/clojure "1.9.0-alpha14"]
+                 [org.clojure/clojure "1.9.0-alpha17"]
                  [yada/lean "1.2.2"]]
   :repl-options {:init-ns user}
   :global-vars {*warn-on-reflection* true

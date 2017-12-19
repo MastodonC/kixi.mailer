@@ -12,7 +12,7 @@
                  [com.amazonaws/aws-java-sdk "1.11.53" :exclusions [joda-time]]
                  [com.taoensso/timbre "4.8.0"]
                  [de.ubercode.clostache/clostache "1.4.0"]
-                 [kixi/kixi.comms "0.2.30"]
+                 [kixi/kixi.comms "0.2.31"]
                  [kixi/kixi.log "0.1.5"]
                  [kixi/kixi.metrics "0.4.0"]
                  [org.clojure/clojure "1.9.0-alpha17"]

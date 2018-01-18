@@ -88,9 +88,7 @@
                                                     :metrics-level :NONE
                                         ;:idle-time-between-reads-in-millis #or [#env KINESIS_IDLE 200]
                                                     }}}}
- :directory {:heimdall #profile {:development {:host #or [#env HEIMDALL_HOST "localhost"]
-                                               :port #or [#env HEIMDALL_PORT 3002]}
-                                 :dev-staging {:host "localhost"
-                                               :port 10010}
+ :directory {:heimdall #profile {:local {:host #or [#env HEIMDALL_HOST "localhost"]
+                                         :port #or [#env HEIMDALL_PORT 3002]}
                                  :default {:host "kixi.heimdall.marathon.mesos"
                                            :port 10010}}}}

@@ -180,8 +180,8 @@
                           :body {:text "<<&env.default_header>>This is an email from the integration tests for kixi.mailer.<<&env.default_footer>>"}}})
 
 (def test-group-mail
-  {:kixi.mailer/destination {:kixi.mailer.destination/to-groups
-                             (vec (repeatedly (inc (rand-int 10)) (comp str #(java.util.UUID/randomUUID))))}
+  {:kixi.mailer/destination {:kixi.mailer.destination/to-groups #{"c645d47d-1236-4dda-a16f-2d33941b5993" ;; AW
+                                                                  }}
    :kixi.mailer/source "support@mastodonc.com"
    :kixi.mailer/message {:kixi.mailer.message/subject (str "kixi.mailer - " profile " - Integration Test Mail #2")
                          :kixi.mailer.message/body {:kixi.mailer.message/text

@@ -20,7 +20,7 @@
 
 (s/def ::destination
   (s/keys :req-un [::to-addresses]))
-|
+
 (s/def ::subject string?)
 (s/def ::text string?)
 (s/def ::html string?)

@@ -32,3 +32,18 @@
     (let [sender (m/create-mail-sender "endpoint" "base-url")]
       (is (= (m/accepted {} :redefed-accept)
              (sender {:kixi.comms.command/payload example-payload}))))))
+
+(def new-example-payload {:kixi.mailer/destination {:kixi.mailer.destination/to-groups [(str (java.util.UUID/randomUUID))]}
+                          :kixi.mailer/source "no-reply@example.com"
+                          :kixi/mailer/message {:kixi.mailer.message/subject "Test Subject"
+                                                :kixi.mailer.message/body {:html "testing 1-2-3-4"
+                                                                           :text "testing 1-2-3-4"}}})
+
+(deftest group-mail-sender
+  (with-redefs [email/send-email (constantly :redefed-accept)]
+    (let [sender (m/create-group-mail-sender "endpoint" "base-url")]
+      (is (= (m/group-accepted new-example-payload)
+             (sender new-example-payload)))
+      (is (= (:kixi.mailer/destination new-example-payload)
+             (:kixi.mailer/destination (first (sender new-example-payload)))
+             (:kixi.mailer/destination (first (m/group-accepted new-example-payload))))))))

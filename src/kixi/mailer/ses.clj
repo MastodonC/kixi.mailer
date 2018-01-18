@@ -4,47 +4,23 @@
             [clostache.parser :as parser]
             [clojure.spec.alpha :as s]
             [kixi.comms :as c]
+            [kixi.mailer :as m]
+            [kixi.mailer.destination :as md]
+            [kixi.mailer.message :as mm]
+            [kixi.mailer.heimdall :as h]
+            [kixi.spec.conformers :as sc]
             [kixi.log.timbre.appenders.logstash :as l]
-            [taoensso.timbre :as timbre :refer [error]]
+            [taoensso.timbre :as log :refer [error]]
             [clojure.java.io :as io]))
 
-(defn invalid-rejected
-  [cmd explaination]
-  {:kixi.comms.event/key :kixi.mailer/mail-rejected
-   :kixi.comms.event/version "1.0.0"
-   :kixi.comms.event/payload {:reason :mail-invalid
-                              :explain explaination
-                              :kixi/user (:kixi.comms.command/user cmd)}
-   :kixi.comms.event/partition-key (get-in cmd [:kixi.comms.command/user :kixi.user/id])})
-
-(defn aws-rejected
-  [cmd explaination]
-  {:kixi.comms.event/key :kixi.mailer/mail-rejected
-   :kixi.comms.event/version "1.0.0"
-   :kixi.comms.event/payload {:reason :aws-rejected
-                              :explain explaination
-                              :kixi/user (:kixi.comms.command/user cmd)}
-   :kixi.comms.event/partition-key (get-in cmd [:kixi.comms.command/user :kixi.user/id])})
-
-(defn accepted
-  [cmd ses-resp]
-  {:kixi.comms.event/key :kixi.mailer/mail-accepted
-   :kixi.comms.event/version "1.0.0"
-   :kixi.comms.event/payload {:kixi/user (:kixi.comms.command/user cmd)
-                              :ses-response ses-resp}
-   :kixi.comms.event/partition-key (get-in cmd [:kixi.comms.command/user :kixi.user/id])})
-
-(def email-regex #"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,63}$")
-(def email? (s/and string? #(re-matches email-regex %)))
-
 (s/def ::to-addresses
-  (s/coll-of email? :min-count 1 :max-count 50))
+  (s/coll-of sc/email? :min-count 1 :max-count 50))
 
-(s/def ::source email?)
+(s/def ::source sc/email?)
 
 (s/def ::destination
   (s/keys :req-un [::to-addresses]))
-
+|
 (s/def ::subject string?)
 (s/def ::text string?)
 (s/def ::html string?)
@@ -78,6 +54,88 @@
 
 (s/def ::render-vars
   (s/keys :req [::text-vars ::html-vars]))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defmethod c/command-payload
+  [:kixi.mailer/send-group-mail "1.0.0"]
+  [_]
+  (s/keys :req [::m/destination
+                ::m/message]
+          :opt [::m/source]))
+
+(defmethod c/event-payload
+  [:kixi.mailer/group-mail-accepted "1.0.0"]
+  [_]
+  (s/keys :req [::m/destination]
+          :opt [::m/source]))
+
+(defmethod c/event-payload
+  [:kixi.mailer/group-mail-rejected "1.0.0"]
+  [_]
+  (s/keys :req [::m/destination
+                ::m/reason]
+          :opt [::m/source
+                ::m/explain]))
+
+(defmethod c/command-type->event-types
+  [:kixi.mailer/send-group-mail "1.0.0"]
+  [_]
+  #{[:kixi.mailer/group-mail-accepted "1.0.0"]
+    [:kixi.mailer/group-mail-rejected "1.0.0"]})
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defn invalid-rejected
+  [cmd explaination]
+  {:kixi.comms.event/key :kixi.mailer/mail-rejected
+   :kixi.comms.event/version "1.0.0"
+   :kixi.comms.event/payload {:reason :mail-invalid
+                              :explain explaination
+                              :kixi/user (:kixi.comms.command/user cmd)}
+   :kixi.comms.event/partition-key (get-in cmd [:kixi.comms.command/user :kixi.user/id])})
+
+(defn aws-rejected
+  [cmd explaination]
+  {:kixi.comms.event/key :kixi.mailer/mail-rejected
+   :kixi.comms.event/version "1.0.0"
+   :kixi.comms.event/payload {:reason :aws-rejected
+                              :explain explaination
+                              :kixi/user (:kixi.comms.command/user cmd)}
+   :kixi.comms.event/partition-key (get-in cmd [:kixi.comms.command/user :kixi.user/id])})
+
+(defn accepted
+  [cmd ses-resp]
+  {:kixi.comms.event/key :kixi.mailer/mail-accepted
+   :kixi.comms.event/version "1.0.0"
+   :kixi.comms.event/payload {:kixi/user (:kixi.comms.command/user cmd)
+                              :ses-response ses-resp}
+   :kixi.comms.event/partition-key (get-in cmd [:kixi.comms.command/user :kixi.user/id])})
+
+(defn group-accepted
+  [{:keys [::m/destination ::m/source] :as cmd}]
+  [(merge {:kixi.event/type :kixi.mailer/group-mail-accepted
+           :kixi.event/version "1.0.0"
+           ::m/destination destination}
+          (when source
+            {::m/source source}))
+   {:partition-key (get-in cmd [:kixi/user :kixi.user/id])}])
+
+(defn group-rejected
+  ([cmd reason]
+   (group-rejected cmd reason nil))
+  ([{:keys [::m/destination ::m/source] :as cmd} reason message]
+   [(merge {:kixi.event/type :kixi.mailer/group-mail-rejected
+            :kixi.event/version "1.0.0"
+            :kixi.mailer.reject/reason reason
+            :kixi.mailer/destination destination}
+           (when source
+             {:kixi.mailer/source source})
+           (when message
+             {:kixi.mailer.reject/message message}))
+    {:partition-key (get-in cmd [:kixi/user :kixi.user/id])}]))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (def default-payload
   {:source "support@mastodonc.com"})
@@ -127,12 +185,23 @@
       {:error true
        :exception (l/exception->map e)})))
 
+(defn send-group-email
+  [directory endpoint render-vars {:keys [::m/destination ::m/source ::m/message :kixi/user]}]
+  (let [emails (h/resolve-group-emails user directory (::md/to-groups destination))
+        {:keys [::mm/body ::mm/subject]} message
+        {:keys [::mm/html ::mm/text]} body]
+    (send-email endpoint render-vars {:destination {:to-addresses emails}
+                                      :source source
+                                      :message {:subject subject
+                                                :body {:html html
+                                                       :text text}}})))
+
 (defn merge-in-render-vars
   [base-url]
   {::text-vars (merge-with merge base-text-template-vars
-                     {:env {:base_url base-url}})
+                           {:env {:base_url base-url}})
    ::html-vars (merge-with merge base-html-template-vars
-                     {:env {:base_url base-url}})})
+                           {:env {:base_url base-url}})})
 
 (defn validate-configuration
   [endpoint render-vars]
@@ -155,21 +224,49 @@
               (aws-rejected cmd send-resp)))
           (invalid-rejected cmd (s/explain-data ::payload payload)))))))
 
+(defn create-group-mail-sender
+  [directory endpoint base-url]
+  (let [render-vars (merge-in-render-vars base-url)]
+    (validate-configuration endpoint render-vars)
+    (fn [cmd]
+      (if (s/valid? :kixi/command cmd)
+        (let [send-resp (send-group-email directory endpoint render-vars cmd)]
+          (if-not (:error send-resp)
+            (group-accepted cmd)
+            (group-rejected cmd :service-error (pr-str send-resp))))
+        (group-rejected cmd :invalid-cmd (pr-str (s/explain-data :kixi/command cmd)))))))
+
 (defrecord Mailer
-    [communications send-mail-handler endpoint base-url]
-    component/Lifecycle
-    (start [component]
-      (merge component
-             (when-not send-mail-handler
-               {:send-mail-handler
-                (c/attach-command-handler!
-                 communications
-                 :kixi.mailer/mailer
-                 :kixi.mailer/send-mail
-                 "1.0.0" (create-mail-sender endpoint base-url))})))
-    (stop [component]
-      (-> component
-          (update component :send-mail-handler
-                  #(when %
-                     (c/detach-handler! communications %)
-                     nil)))))
+    [directory communications
+     endpoint base-url
+     send-mail-handler
+     send-group-mail-handler]
+  component/Lifecycle
+  (start [component]
+    (log/info "Starting SES mailer" directory)
+    (merge component
+           (when-not send-mail-handler
+             {:send-mail-handler
+              (c/attach-command-handler!
+               communications
+               :kixi.mailer/mailer
+               :kixi.mailer/send-mail
+               "1.0.0" (create-mail-sender endpoint base-url))})
+           (when-not send-group-mail-handler
+             {:send-group-mail-handler
+              (c/attach-validating-command-handler!
+               communications
+               :kixi.mailer/mailer-group
+               :kixi.mailer/send-group-mail
+               "1.0.0" (create-group-mail-sender directory endpoint base-url))})))
+  (stop [component]
+    (log/info "Stopping SES mailer")
+    (-> component
+        (update :send-mail-handler
+                #(when %
+                   (c/detach-handler! communications %)
+                   nil))
+        (update :send-group-mail-handler
+                #(when %
+                   (c/detach-handler! communications %)
+                   nil)))))

@@ -1,20 +1,21 @@
 (ns kixi.integration.ses-test
-  (:require [amazonica.aws.dynamodbv2 :as ddb]
+  (:require [kixi.mailer.system :as sys]
+            [amazonica.aws.dynamodbv2 :as ddb]
             [clj-http.client :as client]
             [clojure
              [test :refer :all]]
+            [clojure.spec.alpha :as s]
             [clojure.spec.test.alpha :as stest]
             [clojure.core.async :as async]
             [environ.core :refer [env]]
             [kixi.comms.components.kinesis :as kinesis]
+            [kixi.comms.components.coreasync :as coreasync]
             [kixi.comms :as c]
             [user :as user]))
 
 (def wait-tries (Integer/parseInt (env :wait-tries "80")))
 (def wait-per-try (Integer/parseInt (env :wait-per-try "1000")))
 (def run-against-staging (Boolean/parseBoolean (env :run-against-staging "false")))
-(def teardown-kinesis (Boolean/parseBoolean (env :teardown-kinesis "false")))
-(def teardown-dynamo (Boolean/parseBoolean (env :teardown-dynamo "false")))
 (def service-url (env :service-url "localhost:8080"))
 (def profile (env :system-profile "local"))
 
@@ -43,46 +44,19 @@
       (when (not-empty tables)
         (recur (doall (filter (partial table-exists? endpoint) tables)))))))
 
-(defn tear-down-kinesis
-  [{:keys [endpoint dynamodb-endpoint streams
-           profile app]}]
-  (when teardown-dynamo
-    (delete-tables dynamodb-endpoint [(kinesis/event-worker-app-name app profile)
-                                      (kinesis/command-worker-app-name app profile)]))
-  (when teardown-kinesis
-    (kinesis/delete-streams! {:endpoint endpoint} (vals streams))))
-
 (defn cycle-system-fixture
   [all-tests]
   (if run-against-staging
     (user/start {} [:communications])
-    (user/start))
+    (user/start {:communications (coreasync/map->CoreAsync
+                                  {:profile profile})} nil))
   (try (stest/instrument)
        (all-tests)
        (finally
-         (let [kinesis-conf (select-keys (:communications @user/system)
-                                         [:endpoint :dynamodb-endpoint :streams
-                                          :profile :app])]
-           (user/stop)
-           (tear-down-kinesis kinesis-conf)))))
+         (user/stop))))
 
 (def comms (atom nil))
 (def event-channel (atom nil))
-
-(defn attach-event-handler!
-  [group-id event handler]
-  (c/attach-event-handler!
-   @comms
-   group-id
-   event
-   "1.0.0"
-   handler))
-
-(defn detach-handler
-  [handler]
-  (c/detach-handler!
-   @comms
-   handler))
 
 (defn sink-to
   [a]
@@ -93,15 +67,21 @@
   [all-tests]
   (reset! comms (:communications @user/system))
   (let [_ (reset! event-channel (async/chan 100))
-        handler (c/attach-event-with-key-handler!
-                 @comms
-                 :mailer-integration-tests
-                 :kixi.comms.event/id
-                 (sink-to event-channel))]
+        handler-1 (c/attach-event-with-key-handler!
+                   @comms
+                   :mailer-integration-tests-1
+                   :kixi.comms.event/id
+                   (sink-to event-channel))
+        handler-2 (c/attach-event-with-key-handler!
+                   @comms
+                   :mailer-integration-tests-2
+                   :kixi.event/id
+                   (sink-to event-channel))]
     (try
       (all-tests)
       (finally
-        (detach-handler handler)
+        (c/detach-handler! @comms handler-1)
+        (c/detach-handler! @comms handler-2)
         (async/close! @event-channel)
         (reset! event-channel nil))))
   (reset! comms nil))
@@ -109,25 +89,28 @@
 
 (defn event-for
   [uid event]
-  (= uid
-     (or (get-in event [:kixi.comms.event/payload :kixi/user :kixi.user/id]))))
+  (or (= uid
+         (get-in event [:kixi.comms.event/payload :kixi/user :kixi.user/id]))
+      (= uid
+         (get-in event [:kixi/user :kixi.user/id]))))
 
 (defn wait-for-events
   [uid & event-types]
-  (first
-   (async/alts!!
-    (mapv (fn [c]
-            (async/go-loop
-                [event (async/<! c)]
-              (if (and (event-for uid event)
-                       ((set event-types)
-                        (:kixi.comms.event/key event)))
-                event
-                (when event
-                  (recur (async/<! c))))))
-          [@event-channel
-           (async/timeout (* wait-tries
-                             wait-per-try))]))))
+  (let [event-types (set event-types)]
+    (first
+     (async/alts!!
+      (mapv (fn [c]
+              (async/go-loop
+                  [event (async/<! c)]
+                (if (and (event-for uid event)
+                         (or (event-types (:kixi.comms.event/key event))
+                             (event-types (:kixi.event/type event))))
+                  event
+                  (when event
+                    (recur (async/<! c))))))
+            [@event-channel
+             (async/timeout (* wait-tries
+                               wait-per-try))])))))
 
 (defn send-mail-cmd
   ([uid mail]
@@ -142,12 +125,33 @@
     mail
     {:kixi.comms.command/partition-key uid})))
 
+(defn send-group-mail-cmd
+  ([uid mail]
+   (send-mail-cmd uid uid mail))
+  ([uid ugroup mail]
+   (c/send-valid-command!
+    @comms
+    (merge
+     {:kixi.command/type :kixi.mailer/send-group-mail
+      :kixi.command/version "1.0.0"
+      :kixi/user {:kixi.user/id uid
+                  :kixi.user/groups (vec-if-not ugroup)}}
+     mail)
+    {:partition-key uid})))
+
 (defn send-mail
   ([uid mail]
    (send-mail uid uid mail))
   ([uid ugroup mail]
    (send-mail-cmd uid ugroup mail)
    (wait-for-events uid :kixi.mailer/mail-rejected :kixi.mailer/mail-accepted)))
+
+(defn send-group-mail
+  ([uid mail]
+   (send-group-mail uid uid mail))
+  ([uid ugroup mail]
+   (send-group-mail-cmd uid ugroup mail)
+   (wait-for-events uid :kixi.mailer/group-mail-rejected :kixi.mailer/group-mail-accepted)))
 
 
 (use-fixtures :once cycle-system-fixture extract-comms)
@@ -157,16 +161,25 @@
     (is (= (:status hc-resp)
            200))))
 
-(def test-mail {:destination {:to-addresses ["support@mastodonc.com"]}
+(def test-mail {:destination {:to-addresses ["developers@mastodonc.com"]}
                 :source "support@mastodonc.com"
                 :message {:subject (str "kixi.mailer - " profile " - Integration Test Mail")
                           :body {:text "<<&env.default_header>>This is an email from the integration tests for kixi.mailer.<<&env.default_footer>>"}}})
+
+(def test-group-mail
+  {:kixi.mailer/destination {:kixi.mailer.destination/to-groups #{"c645d47d-1236-4dda-a16f-2d33941b5993" ;; AW
+                                                                  "0ace7b64-4f2a-4665-8784-b44ff7be63db" ;; 'The Toms'
+                                                                  }}
+   :kixi.mailer/source "support@mastodonc.com"
+   :kixi.mailer/message {:kixi.mailer.message/subject (str "kixi.mailer - " profile " - Integration Test Mail #2")
+                         :kixi.mailer.message/body {:kixi.mailer.message/text
+                                                    "<<&env.default_header>>This is an email from the integration tests for kixi.mailer.<<&env.default_footer>>"}}})
 
 (deftest send-acceptable-mail
   (let [uid (uuid)
         event (send-mail uid test-mail)]
     (is (= :kixi.mailer/mail-accepted
-           (:kixi.comms.event/key event)))
+           (:kixi.comms.event/key event)) (pr-str event))
     (is (= uid
            (get-in event [:kixi.comms.event/payload :kixi/user :kixi.user/id])))))
 
@@ -177,3 +190,21 @@
            (:kixi.comms.event/key event)))
     (is (= uid
            (get-in event [:kixi.comms.event/payload :kixi/user :kixi.user/id])))))
+
+(deftest send-acceptable-group-mail
+  (let [uid (uuid)
+        event (send-group-mail uid test-group-mail)]
+    (is (= :kixi.mailer/group-mail-accepted
+           (:kixi.event/type event)))
+    (is (= uid
+           (get-in event [:kixi/user :kixi.user/id])))))
+
+(comment
+  "We can't test this because `send-valid-event!` boots us out"
+  (deftest send-unacceptable-group-mail
+    (let [uid (uuid)
+          event (send-group-mail uid (dissoc test-group-mail :kixi.mailer/destination))]
+      (is (= :kixi.mailer/group-mail-rejected
+             (:kixi.event/type event)))
+      (is (= uid
+             (get-in event [:kixi/user :kixi.user/id]))))))

@@ -8,6 +8,7 @@
              [comms :as comms]
              [log :as kixi-log]]
             [kixi.comms.components.kinesis :as kinesis]
+            [kixi.comms.components.coreasync :as coreasync]
             [kixi.mailer.ses :as m]
             [kixi.mailer.web :as w]
             [taoensso.timbre :as log]))
@@ -27,8 +28,9 @@
   [config]
   (component/system-map
    :communications (case (first (keys (:communications config)))
-                     :kinesis (kinesis/map->Kinesis {}))
-   :mailer (m/map->Mailer {})
+                     :kinesis (kinesis/map->Kinesis {})
+                     :coreasync (coreasync/map->CoreAsync {}))
+   :mailer (m/map->Mailer (select-keys config [:directory]))
    :web (w/map->Web {})))
 
 (defn raise-first

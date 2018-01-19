@@ -15,7 +15,8 @@
                  [kixi/kixi.comms "0.2.31"]
                  [kixi/kixi.log "0.1.5"]
                  [kixi/kixi.metrics "0.4.0"]
-                 [org.clojure/clojure "1.9.0-alpha17"]
+                 [kixi/kixi.spec "0.1.14-SNAPSHOT"]
+                 [org.clojure/clojure "1.9.0"]
                  [yada/lean "1.2.2"]]
   :repl-options {:init-ns user}
   :global-vars {*warn-on-reflection* true

@@ -39,53 +39,56 @@
                                              :streams {:event #or [#env EVENT_STREAM  "kixi-mailer-local-event"]
                                                        :command #or [#env COMMAND_STREAM "kixi-mailer-local-command"]}
                                              :metrics-level :NONE
+                                        ;:idle-time-between-reads-in-millis #or [#env KINESIS_IDLE 100]}
+                                             :staging-jenkins {:app "kixi.mailer"
+                                                               :endpoint "kinesis.eu-central-1.amazonaws.com"
+                                                               :region-name "eu-central-1"
+                                                               :dynamodb-endpoint "dynamodb.eu-central-1.amazonaws.com"
+                                                               :profile "staging-jenkins"
+                                                               :initial-lease-table-read-capacity 1
+                                                               :initial-lease-table-write-capacity 1
+                                                               :streams {:event "staging-jenkins-kixi-mailer-event"
+                                                                         :command "staging-jenkins-kixi-mailer-command"}
+                                                               :metrics-level :NONE
                                         ;:idle-time-between-reads-in-millis #or [#env KINESIS_IDLE 100]
-                                             }
-                                     :staging-jenkins {:app "kixi.mailer"
+                                                               }
+                                             :staging {:app "kixi.mailer"
                                                        :endpoint "kinesis.eu-central-1.amazonaws.com"
                                                        :region-name "eu-central-1"
                                                        :dynamodb-endpoint "dynamodb.eu-central-1.amazonaws.com"
-                                                       :profile "staging-jenkins"
+                                                       :profile "staging"
                                                        :initial-lease-table-read-capacity 1
                                                        :initial-lease-table-write-capacity 1
-                                                       :streams {:event "staging-jenkins-kixi-mailer-event"
-                                                                 :command "staging-jenkins-kixi-mailer-command"}
+                                                       :streams {:event "staging-witan-event"
+                                                                 :command "staging-witan-command"}
+                                        ;:idle-time-between-reads-in-millis #or [#env KINESIS_IDLE 200]
                                                        :metrics-level :NONE
-                                        ;:idle-time-between-reads-in-millis #or [#env KINESIS_IDLE 100]
                                                        }
-                                     :staging {:app "kixi.mailer"
-                                               :endpoint "kinesis.eu-central-1.amazonaws.com"
-                                               :region-name "eu-central-1"
-                                               :dynamodb-endpoint "dynamodb.eu-central-1.amazonaws.com"
-                                               :profile "staging"
-                                               :initial-lease-table-read-capacity 1
-                                               :initial-lease-table-write-capacity 1
-                                               :streams {:event "staging-witan-event"
-                                                         :command "staging-witan-command"}
+                                             :staging-integration {:app "kixi.mailer-staging-test"
+                                                                   :endpoint "kinesis.eu-central-1.amazonaws.com"
+                                                                   :region-name "eu-central-1"
+                                                                   :dynamodb-endpoint "dynamodb.eu-central-1.amazonaws.com"
+                                                                   :profile "staging-integration"
+                                                                   :initial-lease-table-read-capacity 1
+                                                                   :initial-lease-table-write-capacity 1
+                                                                   :streams {:event "staging-witan-event"
+                                                                             :command "staging-witan-command"}
+                                                                   :metrics-level :NONE
                                         ;:idle-time-between-reads-in-millis #or [#env KINESIS_IDLE 200]
-                                               :metrics-level :NONE
-                                               }
-                                     :staging-integration {:app "kixi.mailer-staging-test"
-                                                           :endpoint "kinesis.eu-central-1.amazonaws.com"
-                                                           :region-name "eu-central-1"
-                                                           :dynamodb-endpoint "dynamodb.eu-central-1.amazonaws.com"
-                                                           :profile "staging-integration"
-                                                           :initial-lease-table-read-capacity 1
-                                                           :initial-lease-table-write-capacity 1
-                                                           :streams {:event "staging-witan-event"
-                                                                     :command "staging-witan-command"}
-                                                           :metrics-level :NONE
+                                                                   }
+                                             :prod {:app "kixi.mailer"
+                                                    :endpoint "kinesis.eu-west-1.amazonaws.com"
+                                                    :region-name "eu-west-1"
+                                                    :dynamodb-endpoint "dynamodb.eu-west-1.amazonaws.com"
+                                                    :profile "prod"
+                                                    :initial-lease-table-read-capacity 2
+                                                    :initial-lease-table-write-capacity 2
+                                                    :streams {:event "prod-witan-event"
+                                                              :command "prod-witan-command"}
+                                                    :metrics-level :NONE
                                         ;:idle-time-between-reads-in-millis #or [#env KINESIS_IDLE 200]
-                                                           }
-                                     :prod {:app "kixi.mailer"
-                                            :endpoint "kinesis.eu-west-1.amazonaws.com"
-                                            :region-name "eu-west-1"
-                                            :dynamodb-endpoint "dynamodb.eu-west-1.amazonaws.com"
-                                            :profile "prod"
-                                            :initial-lease-table-read-capacity 2
-                                            :initial-lease-table-write-capacity 2
-                                            :streams {:event "prod-witan-event"
-                                                      :command "prod-witan-command"}
-                                            :metrics-level :NONE
-                                        ;:idle-time-between-reads-in-millis #or [#env KINESIS_IDLE 200]
-                                            }}}}
+                                                    }}}}
+ :directory {:heimdall #profile {:local {:host #or [#env HEIMDALL_HOST "localhost"]
+                                         :port #or [#env HEIMDALL_PORT 3002]}
+                                 :default {:host "kixi.heimdall.marathon.mesos"
+                                           :port 10010}}}}

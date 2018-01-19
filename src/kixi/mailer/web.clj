@@ -27,15 +27,16 @@
 
 (defrecord Web
     [port listener]
-    component/Lifecycle
-    (start [component]
-      (if listener
-        component
-        (let [_ (infof "Starting web-server on port %s" port)
-              listener (yada/listener (routes) {:port port})]
-          (assoc component :listener listener))))
-    (stop [component]
-      (when-let [close (get-in component [:listener :close])]
-        (infof "Stopping web-server on port %s" port)
-        (close))
-      (assoc component :listener nil)))
+  component/Lifecycle
+  (start [component]
+    (if listener
+      component
+      (let [_ (infof "Starting web server on port %s" port)
+            listener (yada/listener (routes) {:port port})]
+        (timbre/debug "Web server running")
+        (assoc component :listener listener))))
+  (stop [component]
+    (when-let [close (get-in component [:listener :close])]
+      (infof "Stopping web-server on port %s" port)
+      (close))
+    (assoc component :listener nil)))

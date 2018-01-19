@@ -73,6 +73,17 @@
 
 (defn resolve-group-emails
   [u d groups]
+  (let [group-info (get-groups-info u d groups)
+        group-owners (map :kixi.group/created-by (:items group-info))
+        ;;
+        groupy-groups (filter #(= "group" (:kixi.group/type %)) (:items group-info))
+        ;;
+        owners-info (get-users-info u d group-owners)
+        owners-emails (map :kixi.user/username (:items owners-info))]
+    (set owners-emails)))
+
+(defn resolve-group-emails*
+  [u d groups]
   (->> groups
        (get-groups-info u d)
        :items

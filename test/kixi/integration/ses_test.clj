@@ -9,6 +9,7 @@
             [clojure.core.async :as async]
             [environ.core :refer [env]]
             [kixi.comms.components.kinesis :as kinesis]
+            [kixi.comms.components.coreasync :as coreasync]
             [kixi.comms :as c]
             [user :as user]))
 
@@ -58,7 +59,8 @@
   [all-tests]
   (if run-against-staging
     (user/start {} [:communications])
-    (user/start))
+    (user/start {:communications (coreasync/map->CoreAsync
+                                  {:profile profile})} nil))
   (try (stest/instrument)
        (all-tests)
        (finally
@@ -181,6 +183,7 @@
 
 (def test-group-mail
   {:kixi.mailer/destination {:kixi.mailer.destination/to-groups #{"c645d47d-1236-4dda-a16f-2d33941b5993" ;; AW
+                                                                  "0ace7b64-4f2a-4665-8784-b44ff7be63db" ;; 'The Toms'
                                                                   }}
    :kixi.mailer/source "support@mastodonc.com"
    :kixi.mailer/message {:kixi.mailer.message/subject (str "kixi.mailer - " profile " - Integration Test Mail #2")

@@ -60,6 +60,10 @@
   [u d groups]
   (get-elements u d "groups" (vec groups)))
 
+(defn get-group-member-info
+  [u d id]
+  (get-elements u d "group/users" id))
+
 (defn get-all-groups
   [u d]
   (let [url (directory-url :heimdall d "groups" "search")
@@ -73,22 +77,9 @@
 
 (defn resolve-group-emails
   [u d groups]
-  (let [group-info (get-groups-info u d groups)
-        group-owners (map :kixi.group/created-by (:items group-info))
-        ;;
-        groupy-groups (filter #(= "group" (:kixi.group/type %)) (:items group-info))
-        ;;
-        owners-info (get-users-info u d group-owners)
-        owners-emails (map :kixi.user/username (:items owners-info))]
-    (set owners-emails)))
-
-(defn resolve-group-emails*
-  [u d groups]
-  (->> groups
-       (get-groups-info u d)
-       :items
-       (map :kixi.group/created-by)
-       (get-users-info u d)
-       :items
-       (map :kixi.user/username)
-       set))
+  (let [group-info           (:items (get-groups-info u d groups))
+        {:strs [user group]} (group-by :kixi.group/type group-info)
+        user-groups          (mapcat (comp :items (partial get-group-member-info u d) :kixi.group/id) user)
+        members-of-groups    (mapcat (comp :items (partial get-group-member-info u d) :kixi.group/id) group)
+        usernames            (map :kixi.user/username (concat user-groups members-of-groups))]
+    (set usernames)))

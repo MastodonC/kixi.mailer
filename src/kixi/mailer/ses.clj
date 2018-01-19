@@ -188,9 +188,6 @@
 (defn send-group-email
   [directory endpoint render-vars {:keys [::m/destination ::m/source ::m/message :kixi/user]}]
   (let [emails (h/resolve-group-emails user directory (::md/to-groups destination))
-        _ (println "GROUPS -> EMAILS ")
-        _ (println (::md/to-groups destination))
-        _ (println emails)
         {:keys [::mm/body ::mm/subject]} message
         {:keys [::mm/html ::mm/text]} body]
     (send-email endpoint render-vars {:destination {:to-addresses emails}

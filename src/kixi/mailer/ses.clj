@@ -7,6 +7,7 @@
             [kixi.mailer :as m]
             [kixi.mailer.destination :as md]
             [kixi.mailer.message :as mm]
+            [kixi.mailer.reject :as mr]
             [kixi.mailer.heimdall :as h]
             [kixi.spec.conformers :as sc]
             [kixi.log.timbre.appenders.logstash :as l]
@@ -74,9 +75,9 @@
   [:kixi.mailer/group-mail-rejected "1.0.0"]
   [_]
   (s/keys :req [::m/destination
-                ::m/reason]
+                ::mr/reason]
           :opt [::m/source
-                ::m/explain]))
+                ::mr/explain]))
 
 (defmethod c/command-type->event-types
   [:kixi.mailer/send-group-mail "1.0.0"]
@@ -127,12 +128,12 @@
   ([{:keys [::m/destination ::m/source] :as cmd} reason message]
    [(merge {:kixi.event/type :kixi.mailer/group-mail-rejected
             :kixi.event/version "1.0.0"
-            :kixi.mailer.reject/reason reason
-            :kixi.mailer/destination destination}
+            ::mr/reason reason
+            ::m/destination destination}
            (when source
-             {:kixi.mailer/source source})
+             {::m/source source})
            (when message
-             {:kixi.mailer.reject/message message}))
+             {::mr/explain message}))
     {:partition-key (get-in cmd [:kixi/user :kixi.user/id])}]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

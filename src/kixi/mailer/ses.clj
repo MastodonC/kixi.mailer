@@ -187,15 +187,18 @@
 
 (defn send-group-email
   [directory endpoint render-vars {:keys [::m/destination ::m/source ::m/message :kixi/user]}]
-  (let [emails (h/resolve-group-emails user directory (::md/to-groups destination))
-        {:keys [::mm/body ::mm/subject]} message
-        {:keys [::mm/html ::mm/text]} body]
-    (send-email endpoint render-vars {:destination {:to-addresses emails}
-                                      :source source
-                                      :message {:subject subject
-                                                :body (merge {}
-                                                             (when html {:html html})
-                                                             (when text {:text text}))}})))
+  (let [groups (::md/to-groups destination)
+        emails (not-empty (h/resolve-group-emails user directory groups))]
+    (if emails
+      (let [{:keys [::mm/body ::mm/subject]} message
+            {:keys [::mm/html ::mm/text]} body]
+        (send-email endpoint render-vars {:destination {:to-addresses emails}
+                                          :source source
+                                          :message {:subject subject
+                                                    :body (merge {}
+                                                                 (when html {:html html})
+                                                                 (when text {:text text}))}}))
+      {:error (str "Could not resolve email addresses for ANY of the following groups: " groups)})))
 
 (defn merge-in-render-vars
   [base-url]

@@ -10,7 +10,12 @@
             [environ.core :refer [env]]
             [kixi.comms.components.kinesis :as kinesis]
             [kixi.comms.components.coreasync :as coreasync]
+            [kixi.mailer.heimdall :as h]
             [kixi.comms :as c]
+            [gniazdo.core :as ws]
+            [clojure.core.async
+             :refer [>! <! >!! <!! go chan close! put!
+                     alts! alts!! timeout]]
             [user :as user]))
 
 (def wait-tries (Integer/parseInt (env :wait-tries "80")))
@@ -153,6 +158,80 @@
    (send-group-mail-cmd uid ugroup mail)
    (wait-for-events uid :kixi.mailer/group-mail-rejected :kixi.mailer/group-mail-accepted)))
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defn login
+  [d]
+  (let [uri (h/directory-url :heimdall d "create-auth-token")]
+    (:body (client/post uri {:content-type :transit+json
+                             :accept :transit+json
+                             :throw-exceptions false
+                             :as :transit+json
+                             :form-params {:username "test@mastodonc.com"
+                                           :password "Secret123"}}))))
+
+(defn create-ws-connection
+  [connected-fn received-fn]
+  (let [url "wss://staging-api.witanforcities.com/ws"
+        c (ws/client (java.net.URI. url))]
+    (.setMaxTextMessageSize (.getPolicy c) 4194304)
+    (.start c)
+    (println "Opening websocket...")
+    (ws/connect url
+      :on-connect (fn [& _]
+                    (println "Websocket on-connect called.")
+                    (connected-fn))
+      :on-receive (fn [x]
+                    (println "Websocket received something!")
+                    (when received-fn
+                      (received-fn (h/transit-decode x))))
+      :client c)))
+
+(defn close-ws
+  [c]
+  (println "Closing websocket...")
+  (ws/close c))
+
+(defn send-msg-ws
+  [w tkp msg]
+  (ws/send-msg w (h/transit-encode {:kixi.comms.auth/token-pair tkp
+                                    :kixi.comms.message/type "query"
+                                    :kixi.comms.query/id (uuid)
+                                    :kixi.comms.query/body msg})))
+
+(defn wait-for-ws
+  [received-ch]
+  (let [connected? (atom false)
+        w (create-ws-connection
+           #(reset! connected? true)
+           (comp (partial put! received-ch)))]
+    (while (not @connected?)
+      (Thread/sleep 1000))
+    w))
+
+(defn fetch-groups-from-heimdall
+  []
+  (let [r (chan)
+        d (:directory @user/system)
+        usr (:token-pair (login d))
+        _ (println usr)
+        w (wait-for-ws r)]
+    ;;
+    (send-msg-ws w usr {:groups/search [[] []]})
+    (let [results (map :kixi.group/id (->
+                                       (<!! r)
+                                       :kixi.comms.query/results
+                                       (first)
+                                       :groups/search
+                                       :items
+                                       (shuffle)))]
+      (close! r)
+      (close-ws w)
+      results)))
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
 
 (use-fixtures :once cycle-system-fixture extract-comms)
 
@@ -166,14 +245,16 @@
                 :message {:subject (str "kixi.mailer - " profile " - Integration Test Mail")
                           :body {:text "<<&env.default_header>>This is an email from the integration tests for kixi.mailer.<<&env.default_footer>>"}}})
 
-(def test-group-mail
-  {:kixi.mailer/destination {:kixi.mailer.destination/to-groups #{"c645d47d-1236-4dda-a16f-2d33941b5993" ;; AW
-                                                                  "0ace7b64-4f2a-4665-8784-b44ff7be63db" ;; 'The Toms'
-                                                                  }}
-   :kixi.mailer/source "support@mastodonc.com"
-   :kixi.mailer/message {:kixi.mailer.message/subject (str "kixi.mailer - " profile " - Integration Test Mail #2")
-                         :kixi.mailer.message/body {:kixi.mailer.message/text
-                                                    "<<&env.default_header>>This is an email from the integration tests for kixi.mailer.<<&env.default_footer>>"}}})
+(defn test-group-mail
+  []
+  (let [g (set (take 5 (fetch-groups-from-heimdall)))]
+    {:kixi.mailer/destination {:kixi.mailer.destination/to-groups g}
+     :kixi.mailer/source "support@mastodonc.com"
+     :kixi.mailer/message {:kixi.mailer.message/subject
+                           (str "kixi.mailer - " profile " - Integration Test Mail #2")
+                           :kixi.mailer.message/body
+                           {:kixi.mailer.message/text
+                            "<<&env.default_header>>This is an email from the integration tests for kixi.mailer.<<&env.default_footer>>"}}}))
 
 (deftest send-acceptable-mail
   (let [uid (uuid)
@@ -193,18 +274,17 @@
 
 (deftest send-acceptable-group-mail
   (let [uid (uuid)
-        event (send-group-mail uid test-group-mail)]
+        event (send-group-mail uid (test-group-mail))]
     (is (= :kixi.mailer/group-mail-accepted
            (:kixi.event/type event)))
     (is (= uid
            (get-in event [:kixi/user :kixi.user/id])))))
 
-(comment
-  "We can't test this because `send-valid-event!` boots us out"
-  (deftest send-unacceptable-group-mail
-    (let [uid (uuid)
-          event (send-group-mail uid (dissoc test-group-mail :kixi.mailer/destination))]
-      (is (= :kixi.mailer/group-mail-rejected
-             (:kixi.event/type event)))
-      (is (= uid
-             (get-in event [:kixi/user :kixi.user/id]))))))
+(deftest send-unacceptable-group-mail
+  (let [uid (uuid)
+        event (binding [c/*validate-commands* false]
+                (send-group-mail uid (dissoc (test-group-mail) :kixi.mailer/destination)))]
+    (is (= :kixi.mailer/group-mail-rejected
+           (:kixi.event/type event)))
+    (is (= uid
+           (get-in event [:kixi/user :kixi.user/id])))))

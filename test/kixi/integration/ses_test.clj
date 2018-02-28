@@ -214,7 +214,6 @@
   (let [r (chan)
         d (:directory @user/system)
         usr (:token-pair (login d))
-        _ (println usr)
         w (wait-for-ws r)]
     ;;
     (send-msg-ws w usr {:groups/search [[] []]})

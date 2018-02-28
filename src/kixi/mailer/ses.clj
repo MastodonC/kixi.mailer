@@ -74,14 +74,6 @@
 (defmethod c/event-payload
   [:kixi.mailer/group-mail-rejected "1.0.0"]
   [_]
-  (s/keys :req [::m/destination
-                ::mr/reason]
-          :opt [::m/source
-                ::mr/explain]))
-
-(defmethod c/event-payload
-  [:kixi.mailer/group-mail-rejected "2.0.0"]
-  [_]
   (s/keys :req [::mr/destination
                 ::mr/reason]
           :opt [::mr/source
@@ -91,7 +83,7 @@
   [:kixi.mailer/send-group-mail "1.0.0"]
   [_]
   #{[:kixi.mailer/group-mail-accepted "1.0.0"]
-    [:kixi.mailer/group-mail-rejected "2.0.0"]})
+    [:kixi.mailer/group-mail-rejected "1.0.0"]})
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -135,7 +127,7 @@
    (group-rejected cmd reason nil))
   ([{:keys [::m/destination ::m/source] :as cmd} reason message]
    [(merge {:kixi.event/type :kixi.mailer/group-mail-rejected
-            :kixi.event/version "2.0.0"
+            :kixi.event/version "1.0.0"
             ::mr/reason reason
             ::mr/destination destination}
            (when source

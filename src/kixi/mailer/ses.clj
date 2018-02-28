@@ -7,6 +7,7 @@
             [kixi.mailer :as m]
             [kixi.mailer.destination :as md]
             [kixi.mailer.message :as mm]
+            [kixi.mailer.reject :as mr]
             [kixi.mailer.heimdall :as h]
             [kixi.spec.conformers :as sc]
             [kixi.log.timbre.appenders.logstash :as l]
@@ -73,10 +74,10 @@
 (defmethod c/event-payload
   [:kixi.mailer/group-mail-rejected "1.0.0"]
   [_]
-  (s/keys :req [::m/destination
-                ::m/reason]
-          :opt [::m/source
-                ::m/explain]))
+  (s/keys :req [::mr/destination
+                ::mr/reason]
+          :opt [::mr/source
+                ::mr/explain]))
 
 (defmethod c/command-type->event-types
   [:kixi.mailer/send-group-mail "1.0.0"]
@@ -127,12 +128,12 @@
   ([{:keys [::m/destination ::m/source] :as cmd} reason message]
    [(merge {:kixi.event/type :kixi.mailer/group-mail-rejected
             :kixi.event/version "1.0.0"
-            :kixi.mailer.reject/reason reason
-            :kixi.mailer/destination destination}
+            ::mr/reason reason
+            ::mr/destination destination}
            (when source
-             {:kixi.mailer/source source})
+             {::mr/source source})
            (when message
-             {:kixi.mailer.reject/message message}))
+             {::mr/explain message}))
     {:partition-key (get-in cmd [:kixi/user :kixi.user/id])}]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -187,15 +188,18 @@
 
 (defn send-group-email
   [directory endpoint render-vars {:keys [::m/destination ::m/source ::m/message :kixi/user]}]
-  (let [emails (h/resolve-group-emails user directory (::md/to-groups destination))
-        {:keys [::mm/body ::mm/subject]} message
-        {:keys [::mm/html ::mm/text]} body]
-    (send-email endpoint render-vars {:destination {:to-addresses emails}
-                                      :source source
-                                      :message {:subject subject
-                                                :body (merge {}
-                                                             (when html {:html html})
-                                                             (when text {:text text}))}})))
+  (let [groups (::md/to-groups destination)
+        emails (not-empty (h/resolve-group-emails user directory groups))]
+    (if emails
+      (let [{:keys [::mm/body ::mm/subject]} message
+            {:keys [::mm/html ::mm/text]} body]
+        (send-email endpoint render-vars {:destination {:to-addresses emails}
+                                          :source source
+                                          :message {:subject subject
+                                                    :body (merge {}
+                                                                 (when html {:html html})
+                                                                 (when text {:text text}))}}))
+      {:error (str "Could not resolve email addresses for ANY of the following groups: " groups)})))
 
 (defn merge-in-render-vars
   [base-url]

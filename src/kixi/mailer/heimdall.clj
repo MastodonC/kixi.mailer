@@ -7,6 +7,9 @@
 
 ;; copied from witan.gateway
 
+(def regex-write-handler
+  (tr/write-handler "regex" (fn [o] (str o))))
+
 (def transit-encoding-level :json-verbose) ;; DO NOT CHANGE
 (defn transit-decode-bytes [in]
   (let [reader (tr/reader in transit-encoding-level)]
@@ -16,6 +19,12 @@
         in (ByteArrayInputStream. sbytes)
         reader (tr/reader in transit-encoding-level)]
     (tr/read reader)))
+(defn transit-encode [s]
+  (let [out (ByteArrayOutputStream. 4096)
+        writer (tr/writer out transit-encoding-level
+                          {:handlers {java.util.regex.Pattern regex-write-handler}})]
+    (tr/write writer s)
+    (.toString out)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 

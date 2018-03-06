@@ -216,17 +216,19 @@
     (throw (ex-info "Config invalid" (s/explain-data ::render-vars render-vars)))))
 
 (defn create-mail-sender
-  [endpoint base-url]
+  [endpoint base-url dry-run?]
   (let [render-vars (merge-in-render-vars base-url)]
     (validate-configuration endpoint render-vars)
     (fn [{:keys [kixi.comms.command/payload] :as cmd}]
       (let [payload (merge default-payload
                            payload)]
         (if (s/valid? ::payload payload)
-          (let [send-resp (send-email endpoint render-vars payload)]
-            (if-not (:error send-resp)
-              (accepted cmd send-resp)
-              (aws-rejected cmd send-resp)))
+          (if dry-run?
+            (accepted cmd "dry running")
+            (let [send-resp (send-email endpoint render-vars payload)]
+              (if-not (:error send-resp)
+                (accepted cmd send-resp)
+                (aws-rejected cmd send-resp))))
           (invalid-rejected cmd (s/explain-data ::payload payload)))))))
 
 (defn create-group-mail-sender
@@ -243,7 +245,7 @@
 
 (defrecord Mailer
     [directory communications
-     endpoint base-url
+     endpoint base-url dry-run?
      send-mail-handler
      send-group-mail-handler]
   component/Lifecycle
@@ -256,7 +258,7 @@
                communications
                :kixi.mailer/mailer
                :kixi.mailer/send-mail
-               "1.0.0" (create-mail-sender endpoint base-url))})
+               "1.0.0" (create-mail-sender endpoint base-url dry-run?))})
            (when-not send-group-mail-handler
              {:send-group-mail-handler
               (c/attach-validating-command-handler!

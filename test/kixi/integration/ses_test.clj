@@ -52,7 +52,7 @@
 (defn cycle-system-fixture
   [all-tests]
   (if run-against-staging
-    (user/start {} [:communications])
+    (user/start {} [:communications :directory])
     (user/start {:communications (coreasync/map->CoreAsync
                                   {:profile profile})} nil))
   (try (stest/instrument)

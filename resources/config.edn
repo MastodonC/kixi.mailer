@@ -1,16 +1,16 @@
 {:service-name "kixi.mailer"
  :mailer {:ses #profile {:local {:endpoint "eu-west-1"
                                  :base-url "https://www.staging.witanforcities.com"
-                                 :dry-run? #or #[#env DRY_RUN false]}
+                                 :dry-run? #or [#env DRY_RUN false]}
                          :staging-jenkins {:endpoint "eu-west-1"
                                            :base-url "https://www.staging.witanforcities.com"
-                                           :dry-run? #or #[#env DRY_RUN false]}
+                                           :dry-run? #or [#env DRY_RUN false]}
                          :staging {:endpoint "eu-west-1"
                                    :base-url "https://staging.witanforcities.com"
-                                   :dry-run? #or #[#env DRY_RUN false]}
+                                   :dry-run? #or [#env DRY_RUN false]}
                          :prod {:endpoint "eu-west-1"
                                 :base-url "https://witanforcities.com"
-                                :dry-run? #or #[#env DRY_RUN false]}}}
+                                :dry-run? #or [#env DRY_RUN false]}}}
  :logging {:level #profile {:default :info
                             :prod :error} ; e/o #{:trace :debug :info :warn :error :fatal :report}
            ;; Control log filtering by namespaces/patterns. Useful for turning off

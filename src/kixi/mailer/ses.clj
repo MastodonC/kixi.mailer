@@ -232,15 +232,17 @@
           (invalid-rejected cmd (s/explain-data ::payload payload)))))))
 
 (defn create-group-mail-sender
-  [directory endpoint base-url]
+  [directory endpoint base-url dry-run?]
   (let [render-vars (merge-in-render-vars base-url)]
     (validate-configuration endpoint render-vars)
     (fn [cmd]
       (if (s/valid? :kixi/command cmd)
-        (let [send-resp (send-group-email directory endpoint render-vars cmd)]
-          (if-not (:error send-resp)
-            (group-accepted cmd)
-            (group-rejected cmd :service-error (pr-str send-resp))))
+        (if dry-run?
+          (group-accepted cmd)
+          (let [send-resp (send-group-email directory endpoint render-vars cmd)]
+            (if-not (:error send-resp)
+              (group-accepted cmd)
+              (group-rejected cmd :service-error (pr-str send-resp)))))
         (group-rejected cmd :invalid-cmd (pr-str (s/explain-data :kixi/command cmd)))))))
 
 (defrecord Mailer
@@ -265,7 +267,7 @@
                communications
                :kixi.mailer/mailer-group
                :kixi.mailer/send-group-mail
-               "1.0.0" (create-group-mail-sender directory endpoint base-url))})))
+               "1.0.0" (create-group-mail-sender directory endpoint base-url dry-run?))})))
   (stop [component]
     (log/info "Stopping SES mailer")
     (-> component

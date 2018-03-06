@@ -253,6 +253,8 @@
   component/Lifecycle
   (start [component]
     (log/info "Starting SES mailer" directory)
+    (when dry-run?
+      (log/warn "The mailer is in DRY RUN mode. No emails will actually be sent."))
     (merge component
            (when-not send-mail-handler
              {:send-mail-handler

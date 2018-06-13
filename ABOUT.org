@@ -117,7 +117,7 @@ The entrypoint for Mailer is via the ~kixi.mailer.bootstrap~ namespace, which cr
 | kixi.mailer.heimdall | Functions for querying Heimdall           |
 
 The bulk of the logic for Mailer is in ~kixi.mailer.ses~. SES refers to Amazon's Simple Email Service which is what Mailer uses to send emails.
-There are currently two commands which are handled by the ~kixi.mailer.ses~ namespace. These are commands the only way to have Mailer send emails:
+There are currently two commands which are handled by the ~kixi.mailer.ses~ namespace. These commands are the only way to have Mailer send emails:
 
 - *:kixi.mailer/send-mail* (old style) allows you to send a message to a list of recipients using /email addresses/.
 - *:kixi.mailer/send-group-mail* (new style) allows you to send a message to a list of recipients using /group ids/. It will resolve these IDs via Heimdall. These are then concatenated, as one ID might translate to multiple email addresses.
@@ -137,7 +137,7 @@ Mailer uses our library, ~kixi.comms~ to connect to Kinesis, to send and receive
 
 **** kixi.spec
 
-Mailer makes use of ~kixi.spec~ for the ~*:kixi.mailer/send-group-mail~ commands because it's a new style command. Ideally some work could be done to
+Mailer makes use of ~kixi.spec~ for the ~:kixi.mailer/send-group-mail~ command because it's a new style command. Ideally some work could be done to
 move the other command (~:kixi.mailer/send-mail~) to use the ~kixi.spec~ version of the specs and not the local ones.
 
 ** Future
@@ -151,8 +151,8 @@ the ~kixi.mailer~ project itself.
 
 **** Events
 
-Although Mailer sends events (it has to), it doesn't currently respond to events. However, there's a chance it will at some point. Be sure to use
-new style events and event handlers. For examples of event handlers take a look at one of the other services.
+Although Mailer sends events (it has to), it doesn't currently respond to events - it has no event handlers. However, there's a chance it will at some
+point. Be sure to use new style events and event handlers. For examples of event handlers take a look at one of the other services.
 
 *** Long-term plan
 

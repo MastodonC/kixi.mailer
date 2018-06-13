@@ -109,7 +109,7 @@ parameterised and environment-aware configuration.
 
 The entrypoint for Mailer is via the ~kixi.mailer.bootstrap~ namespace, which creates the system.
 
-*** Emailing Aggregates
+*** Emailing
 
 | Key Namespaces       | Description                               |
 |----------------------+-------------------------------------------|

@@ -1,0 +1,161 @@
+* kixi.mailer
+
+**** June 2018
+
+/This document assumes familiarity with the Witan architecture, CQRS and event-sourcing./
+
+*kixi.mailer* (aka 'Mailer') is the service concerned with sending emails out of the cluster.
+
+The service itself is very small and very simple: it receives a command, it sends an email and it responds with a success or failure event. Because of
+its size and simplicity it's often used for deployment tests and health checking.
+
+** History
+
+Mailer is actually a controversial member of the Witan suite. Back when the need to send emails was identified there was a lot of 'hype' about
+microservices and this strongly influenced the debate on whether email capability should be something that lives in a microservice or a library.
+
+The modern consensus seems to be that it should have been a library. However, it's now a microservice and has become depended on by other services.
+Maintaining is not difficult and the overhead isn't significant so there is not much momentum to rewrite it.
+
+** Component Diagrams
+
+*** System Overview
+
+#+BEGIN_SRC plantuml :file docs/components.png :results silent
+package "Witan Cluster" {
+  [witan.gateway]
+  [kixi.mailer] #LightGreen
+}
+
+cloud {
+  [witan.ui] #Pink
+}
+
+node "AWS" {
+
+database "kinesis" {
+  [streams]
+}
+
+}
+
+User -> [witan.ui]
+[witan.ui] -> [witan.gateway]
+[witan.gateway] -> [streams] #Green
+[streams] -> [witan.gateway] #Blue
+[streams] -> [kixi.mailer] #Blue
+[kixi.mailer] -> [streams] #Green
+
+[witan.gateway] -[hidden]-> [kixi.mailer]
+#+END_SRC
+
+[[file:docs/components.png]]
+
+The above diagram illustrates Mailer's dependencies (not including components that depend on Mailer. witan.ui and witan.gateway are included to
+demonstrate how traffic flows in from the Internet).
+
+*** Application Overview
+
+#+BEGIN_SRC plantuml :file docs/application.png :results silent
+package "kixi.mailer" {
+  [::bootstrap]
+  [::heimdall]
+  [::ses]
+  [::system]
+  [::web]
+}
+
+database "kinesis" {
+  [commands]
+  [events]
+}
+
+' Connections
+
+[::bootstrap] -> [::system]
+[::system] --> [::ses]
+[::system] --> [::web]
+
+[commands] --> [::ses] #Blue
+[events] <-- [::ses] #Green
+
+[::ses] --> [::heimdall]
+
+
+#+END_SRC
+
+[[file:docs/application.png]]
+
+The above diagram shows a more detailed layout of Mailer's internal application design. Notice that there is no state (databases).
+
+** Component Summary
+
+This section aims to address each of the high-level components currently being used by Mailer.
+
+*** System
+
+| Key Namespaces        | Description                              |
+|-----------------------+------------------------------------------|
+| kixi.mailer.bootstrap | Application entry point                  |
+| kixi.mailer.system    | Component system definition and creation |
+| kixi.mailer.web       | HTTP endpoints, providing healthcheck    |
+
+It's clear to see from the structure of Mailer that it was developed out of the Datastore. The combination of a bootstrap and system namespace is
+something it debuted.
+
+The System component describes all the parts of Mailer essential to getting it up and running.
+As with all the Witan microservices, it uses [[https://github.com/stuartsierra/component][Stuart sierra's Component library]] to manage the start-up of service components and [[https://github.com/juxt/aero][Juxt's Aero]] to provide
+parameterised and environment-aware configuration.
+
+The entrypoint for Mailer is via the ~kixi.mailer.bootstrap~ namespace, which creates the system.
+
+*** Emailing
+
+| Key Namespaces       | Description                               |
+|----------------------+-------------------------------------------|
+| kixi.mailer.ses      | Commands handlers and email sending logic |
+| kixi.mailer.heimdall | Functions for querying Heimdall           |
+
+The bulk of the logic for Mailer is in ~kixi.mailer.ses~. SES refers to Amazon's Simple Email Service which is what Mailer uses to send emails.
+There are currently two commands which are handled by the ~kixi.mailer.ses~ namespace. These commands are the only way to have Mailer send emails:
+
+- *:kixi.mailer/send-mail* (old style) allows you to send a message to a list of recipients using /email addresses/.
+- *:kixi.mailer/send-group-mail* (new style) allows you to send a message to a list of recipients using /group ids/. It will resolve these IDs via Heimdall. These are then concatenated, as one ID might translate to multiple email addresses.
+
+~kixi.mailer.heimdall~ contains the code necessary to query Heimdall for group information, very similarly to how ~witan.gateway~ also does it.
+
+*** Testing
+
+As Mailer is such a small code base it understandably has a small amount of tests. ~kixi.integration.ses-test~ contains the bulk of the test code,
+during which it sends commands and observes the events, and uses a real SES backend. You might notice test emails occasionally arrive in your inbox!
+
+*** Honourable Mentions
+
+**** kixi.comms
+
+Mailer uses our library, ~kixi.comms~ to connect to Kinesis, to send and receive messages from the queue.
+
+**** kixi.spec
+
+Mailer makes use of ~kixi.spec~ for the ~:kixi.mailer/send-group-mail~ command because it's a new style command. Ideally some work could be done to
+move the other command (~:kixi.mailer/send-mail~) to use the ~kixi.spec~ version of the specs and not the local ones.
+
+** Future
+
+*** Adding new features
+**** Commands
+
+Commands and command handlers are currently in ~kixi.mailer.ses~. When adding commands be sure to use the new style. It might also be worth splitting out
+the command handlers and command specs into separate namespaces as we've seen in other services. Continue to add new primitives to ~kixi.spec~ rather than
+the ~kixi.mailer~ project itself.
+
+**** Events
+
+Although Mailer sends events (it has to), it doesn't currently respond to events - it has no event handlers. However, there's a chance it will at some
+point. Be sure to use new style events and event handlers. For examples of event handlers take a look at one of the other services.
+
+*** Long-term plan
+
+It's unclear whether or not ~kixi.mailer~ will at some point be deprecated in favour of a library. If it remains as a service then I can anticipate it
+will occasionally require maintenance and new features. So long as the code structure evolves to facilitate a larger code base I see no reason there
+should be major structural changes.
